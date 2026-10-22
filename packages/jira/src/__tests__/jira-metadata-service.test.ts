@@ -1,5 +1,5 @@
 import { JiraService } from '../jira-service.js';
-import { IssueService } from '../jira-client/index.js';
+import { FieldService, IssueService } from '../jira-client/index.js';
 
 jest.mock('../jira-client/core/request.js', () => ({
   request: jest.fn(),
@@ -134,5 +134,91 @@ describe('JiraService name resolution', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Either issueTypeId or issueType must be provided');
     });
+  });
+});
+
+describe('JiraService field discovery', () => {
+  let jiraService: JiraService;
+
+  beforeEach(() => {
+    jiraService = new JiraService('test-host', 'test-token', undefined, () => 25);
+    jest.clearAllMocks();
+  });
+
+  it('lists compact issue types with the default page size', async () => {
+    (IssueService.getCreateIssueMetaProjectIssueTypes as jest.Mock).mockResolvedValue(issueTypesPage);
+
+    const result = await jiraService.metadata.getIssueTypes('PROJ');
+
+    expect(IssueService.getCreateIssueMetaProjectIssueTypes).toHaveBeenCalledWith('PROJ', '25', undefined);
+    expect(result.data).toEqual({
+      startAt: 0,
+      maxResults: 100,
+      total: 2,
+      isLast: true,
+      issueTypes: [
+        { id: '10001', name: 'Task', subtask: false },
+        { id: '10003', name: 'Sub-task', subtask: true },
+      ],
+    });
+  });
+
+  it('resolves the issue type name and returns only required create fields', async () => {
+    (IssueService.getCreateIssueMetaProjectIssueTypes as jest.Mock).mockResolvedValue(issueTypesPage);
+    (IssueService.getCreateIssueMetaFields as jest.Mock).mockResolvedValue({
+      isLast: true,
+      values: [
+        { fieldId: 'summary', name: 'Summary', required: true, schema: { type: 'string' } },
+        { fieldId: 'labels', name: 'Labels', required: false, schema: { type: 'array' } },
+      ],
+    });
+
+    const result = await jiraService.metadata.getCreateFields('PROJ', { issueType: 'Task' }, { onlyRequired: true }, { maxResults: 50, startAt: 10 });
+
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenCalledWith('10001', 'PROJ', '50', '10');
+    expect(result.data?.issueTypeId).toBe('10001');
+    expect(result.data?.fields).toEqual([{ fieldId: 'summary', name: 'Summary', required: true, type: 'string', hasDefaultValue: false }]);
+  });
+
+  it('uses issueTypeId for create fields without looking up issue types', async () => {
+    (IssueService.getCreateIssueMetaFields as jest.Mock).mockResolvedValue({ values: [] });
+
+    await jiraService.metadata.getCreateFields('PROJ', { issueTypeId: '10002' });
+
+    expect(IssueService.getCreateIssueMetaProjectIssueTypes).not.toHaveBeenCalled();
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenCalledWith('10002', 'PROJ', '25', undefined);
+  });
+
+  it('maps editmeta fields keyed by field id', async () => {
+    (IssueService.getEditIssueMeta as jest.Mock).mockResolvedValue({
+      fields: { customfield_10016: { name: 'Story Points', required: false, schema: { type: 'number' } } },
+    });
+
+    const result = await jiraService.metadata.getEditFields('PROJ-1');
+
+    expect(IssueService.getEditIssueMeta).toHaveBeenCalledWith('PROJ-1');
+    expect(result.data).toEqual({
+      fields: [{ fieldId: 'customfield_10016', name: 'Story Points', required: false, type: 'number', hasDefaultValue: false }],
+    });
+  });
+
+  it('filters the field list by query', async () => {
+    (FieldService.getFields as jest.Mock).mockResolvedValue([
+      { id: 'summary', name: 'Summary', custom: false, schema: { type: 'string' } },
+      { id: 'customfield_10016', name: 'Story Points', custom: true, schema: { type: 'number' } },
+    ]);
+
+    const result = await jiraService.metadata.searchFields('story points');
+
+    expect(result.data).toEqual({ fields: [{ id: 'customfield_10016', name: 'Story Points', custom: true, type: 'number' }] });
+  });
+
+  it('reports API errors through handleApiOperation', async () => {
+    (FieldService.getFields as jest.Mock).mockRejectedValue({ status: 401, statusText: 'Unauthorized', body: {} });
+
+    const result = await jiraService.metadata.searchFields();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Error searching fields: 401 Unauthorized');
   });
 });

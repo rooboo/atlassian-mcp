@@ -15,6 +15,7 @@ import { AttachmentService, IssueLinkService, IssueLinkTypeService, IssueService
 import { request as __request } from './jira-client/core/request.js';
 import type { StringList } from './jira-client/models/StringList.js';
 import { getDefaultPageSize, getMissingConfig, JIRA_PRODUCT } from './config.js';
+import { DEFAULT_MAX_ALLOWED_VALUES } from './field-metadata.js';
 import { JiraMetadataService } from './jira-metadata-service.js';
 
 const DEFAULT_SEARCH_FIELDS = ['summary', 'description', 'status', 'assignee', 'reporter', 'priority', 'issuetype', 'labels', 'updated'];
@@ -358,6 +359,16 @@ export class JiraService {
   }
 }
 
+const metaPageSchema = {
+  maxResults: z.number().optional().describe("Maximum number of entries to return"),
+  startAt: z.number().optional().describe("Index of the first entry to return")
+};
+
+const fieldFilterSchema = {
+  onlyRequired: z.boolean().optional().describe("Return only required fields"),
+  maxAllowedValues: z.number().int().min(0).optional().describe(`Maximum allowed values listed per field (default ${DEFAULT_MAX_ALLOWED_VALUES}); longer lists are cut and flagged with truncated: true`)
+};
+
 export const jiraToolSchemas = {
   searchIssues: {
     jql: z.string().describe("JQL query string"),
@@ -447,5 +458,23 @@ export const jiraToolSchemas = {
   },
   unwatchIssue: {
     issueKey: z.string().describe("JIRA issue key (e.g., PROJ-123)")
+  },
+  getIssueTypes: {
+    projectKey: z.string().describe("Project key (e.g. TEST)"),
+    ...metaPageSchema
+  },
+  getCreateFields: {
+    projectKey: z.string().describe("Project key (e.g. TEST)"),
+    issueType: z.string().optional().describe("Issue type name (e.g. Task). Provide either issueType or issueTypeId."),
+    issueTypeId: z.string().optional().describe("Issue type id. Provide either issueTypeId or issueType."),
+    ...fieldFilterSchema,
+    ...metaPageSchema
+  },
+  getEditFields: {
+    issueKey: z.string().describe("JIRA issue key (e.g., PROJ-123)"),
+    ...fieldFilterSchema
+  },
+  searchFields: {
+    query: z.string().optional().describe("Case-insensitive substring matched against field name and id (e.g. 'story points'). Omit to list all fields.")
   }
 };

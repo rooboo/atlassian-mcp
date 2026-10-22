@@ -62,7 +62,7 @@ server.tool(
 
 server.tool(
   "jira_createIssue",
-  `Create a new JIRA issue in the ${jiraInstanceType}. Pass the issue type by name via 'issueType'.`,
+  `Create a new JIRA issue in the ${jiraInstanceType}. Pass the issue type by name via 'issueType'; use jira_getCreateFields to discover required fields.`,
   jiraToolSchemas.createIssue,
   async (params) => {
     const result = await jiraService.createIssue(params);
@@ -107,6 +107,55 @@ server.tool(
   readOnlyToolAnnotations,
   async ({ issueKey }) => {
     const result = await jiraService.getTransitions(issueKey);
+    return formatToolResponse(result);
+  }
+);
+
+server.tool(
+  "jira_getIssueTypes",
+  `List the issue types (id, name, subtask) available for creating issues in a project of the ${jiraInstanceType}.`,
+  jiraToolSchemas.getIssueTypes,
+  readOnlyToolAnnotations,
+  async ({ projectKey, maxResults, startAt }) => {
+    const result = await jiraService.metadata.getIssueTypes(projectKey, { maxResults, startAt });
+    return formatToolResponse(result);
+  }
+);
+
+server.tool(
+  "jira_getCreateFields",
+  `List the fields for creating an issue of a given type in a project of the ${jiraInstanceType} in a compact form (fieldId, name, required, type, hasDefaultValue, shortened allowedValues). Use onlyRequired to see what jira_createIssue needs.`,
+  jiraToolSchemas.getCreateFields,
+  readOnlyToolAnnotations,
+  async ({ projectKey, issueType, issueTypeId, onlyRequired, maxAllowedValues, maxResults, startAt }) => {
+    const result = await jiraService.metadata.getCreateFields(
+      projectKey,
+      { issueType, issueTypeId },
+      { onlyRequired, maxAllowedValues },
+      { maxResults, startAt },
+    );
+    return formatToolResponse(result);
+  }
+);
+
+server.tool(
+  "jira_getEditFields",
+  `List the editable fields of an existing JIRA issue in the ${jiraInstanceType} in the same compact form as jira_getCreateFields.`,
+  jiraToolSchemas.getEditFields,
+  readOnlyToolAnnotations,
+  async ({ issueKey, onlyRequired, maxAllowedValues }) => {
+    const result = await jiraService.metadata.getEditFields(issueKey, { onlyRequired, maxAllowedValues });
+    return formatToolResponse(result);
+  }
+);
+
+server.tool(
+  "jira_searchFields",
+  `Find JIRA field ids by display name in the ${jiraInstanceType} (e.g. 'Story Points' -> customfield_10016). Use the id as key in customFields of jira_createIssue / jira_updateIssue.`,
+  jiraToolSchemas.searchFields,
+  readOnlyToolAnnotations,
+  async ({ query }) => {
+    const result = await jiraService.metadata.searchFields(query);
     return formatToolResponse(result);
   }
 );
