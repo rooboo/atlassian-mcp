@@ -62,7 +62,7 @@ server.tool(
 
 server.tool(
   "jira_createIssue",
-  `Create a new JIRA issue in the ${jiraInstanceType}`,
+  `Create a new JIRA issue in the ${jiraInstanceType}. Pass the issue type by name via 'issueType'.`,
   jiraToolSchemas.createIssue,
   async (params) => {
     const result = await jiraService.createIssue(params);
@@ -124,7 +124,7 @@ server.tool(
 
 server.tool(
   "jira_transitionIssue",
-  `Transition a JIRA issue to a new status in the ${jiraInstanceType}. Use jira_getTransitions first to get available transition IDs.`,
+  `Transition a JIRA issue to a new status in the ${jiraInstanceType}. Prefer the 'transition' parameter (transition or target status name); jira_getTransitions is only needed for ambiguous names or to see fields required by the transition screen.`,
   jiraToolSchemas.transitionIssue,
   async (params) => {
     const result = await jiraService.transitionIssue(params);

@@ -15,6 +15,7 @@ import { AttachmentService, IssueLinkService, IssueLinkTypeService, IssueService
 import { request as __request } from './jira-client/core/request.js';
 import type { StringList } from './jira-client/models/StringList.js';
 import { getDefaultPageSize, getMissingConfig, JIRA_PRODUCT } from './config.js';
+import { JiraMetadataService } from './jira-metadata-service.js';
 
 const DEFAULT_SEARCH_FIELDS = ['summary', 'description', 'status', 'assignee', 'reporter', 'priority', 'issuetype', 'labels', 'updated'];
 const DEFAULT_ISSUE_FIELDS = [...DEFAULT_SEARCH_FIELDS, 'parent', 'subtasks'];
@@ -40,6 +41,7 @@ function resolveToken(token: string | (() => string | undefined), missingTokenMe
 export class JiraService {
   private readonly getPageSize: () => number;
   private readonly tokenProvider: string | (() => string | undefined);
+  readonly metadata: JiraMetadataService;
 
   constructor(
     host: string | undefined,
@@ -58,6 +60,7 @@ export class JiraService {
     OpenAPI.HEADERS = { 'X-Atlassian-Token': 'no-check' };
     this.tokenProvider = token;
     this.getPageSize = getPageSize;
+    this.metadata = new JiraMetadataService(getPageSize);
   }
 
   async searchIssues(jql: string, startAt?: number, expand?: string[], maxResults?: number, fields?: string[]) {
@@ -101,15 +104,17 @@ export class JiraService {
     projectId: string;
     summary: string;
     description: string;
-    issueTypeId: string;
+    issueTypeId?: string;
+    issueType?: string;
     customFields?: Record<string, any>;
   }) {
     return handleApiOperation(async () => {
+      const issueTypeId = await this.metadata.resolveIssueTypeId(params.projectId, params.issueTypeId, params.issueType);
       const standardFields = {
         project: { key: params.projectId },
         summary: params.summary,
         description: params.description,
-        issuetype: { id: params.issueTypeId }
+        issuetype: { id: issueTypeId }
       };
 
       const fields = params.customFields
@@ -180,13 +185,15 @@ export class JiraService {
 
   async transitionIssue(params: {
     issueKey: string;
-    transitionId: string;
+    transitionId?: string;
+    transition?: string;
     fields?: Record<string, any>;
     customFields?: Record<string, any>;
   }) {
     return handleApiOperation(async () => {
+      const transitionId = await this.metadata.resolveTransitionId(params.issueKey, params.transitionId, params.transition);
       const requestBody: { transition: { id: string }; fields?: Record<string, any> } = {
-        transition: { id: params.transitionId }
+        transition: { id: transitionId }
       };
       if (params.fields) {
         requestBody.fields = params.fields;
@@ -383,7 +390,8 @@ export const jiraToolSchemas = {
     projectId: z.string().describe("Project key (despite the parameter name, e.g. TEST)"),
     summary: z.string().describe("Issue summary"),
     description: z.string().describe("Issue description in the format suitable for JIRA DATA CENTER edition (JIRA Wiki Markup)."),
-    issueTypeId: z.string().describe("Issue type id (e.g. id of Task, Bug, Story). Should be found first a correct number for specific JIRA installation."),
+    issueTypeId: z.string().optional().describe("Issue type id (e.g. id of Task, Bug, Story). Provide either issueTypeId or issueType; issueTypeId wins if both are set."),
+    issueType: z.string().optional().describe("Issue type name (e.g. Task, Bug, Story), matched case-insensitively against the project's issue types. Preferred over issueTypeId."),
     customFields: z.record(z.any()).optional().describe("Optional fields merged into the JIRA create payload. Can be used for custom fields and standard fields such as labels. Examples: {'customfield_10001': 'Custom Value', 'priority': {'id': '1'}, 'assignee': {'name': 'john.doe'}, 'labels': ['urgent', 'bug']}")
   },
   updateIssue: {
@@ -403,7 +411,8 @@ export const jiraToolSchemas = {
   },
   transitionIssue: {
     issueKey: z.string().describe("JIRA issue key (e.g., PROJ-123)"),
-    transitionId: z.string().describe("The ID of the transition to perform. Use jira_getTransitions to find available transitions and their IDs."),
+    transitionId: z.string().optional().describe("The ID of the transition to perform. Provide either transitionId or transition; transitionId wins if both are set."),
+    transition: z.string().optional().describe("Name of the transition or of the target status (e.g. 'Start Progress' or 'In Progress'), matched case-insensitively. Preferred over transitionId; unknown or ambiguous names fail with the list of available transitions."),
     fields: z.record(z.any()).optional().describe("Optional fields required by the transition screen. Use jira_getTransitions to see which fields are available for each transition."),
     customFields: z.record(z.any()).optional().describe("Optional fields merged into the JIRA transition payload. Can be used for update operations such as comments. Example: {'update': {'comment': [{'add': {'body': 'text'}}]}}")
   },
