@@ -59,6 +59,8 @@ export class JiraService {
     OpenAPI.TOKEN = resolveToken(token, 'Missing required environment variable: JIRA_API_TOKEN');
     OpenAPI.VERSION = '2';
     OpenAPI.HEADERS = { 'X-Atlassian-Token': 'no-check' };
+    // The generated default (encodeURI) keeps '/', '?' and '#', so tool arguments could escape their path segment.
+    OpenAPI.ENCODE_PATH = encodeURIComponent;
     this.tokenProvider = token;
     this.getPageSize = getPageSize;
     this.metadata = new JiraMetadataService(getPageSize);
