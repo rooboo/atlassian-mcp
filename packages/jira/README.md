@@ -113,7 +113,9 @@ Alternatively, you can use `JIRA_API_BASE_PATH` instead of `JIRA_HOST` to specif
 - Search for issues using JQL (Jira Query Language)
 - Get issue details by key
 - Get issue comments
-- Create and update issues
+- Create and update issues (issue type by name)
+- Transition issues by transition or target status name
+- Discover issue types, create/edit fields and custom field ids in a compact form
 - Add and update comments on issues
 - Link and unlink issues
 - Watch and unwatch issues
@@ -243,7 +245,8 @@ Parameters:
 - `projectId` (string, required): Project key (despite the parameter name, e.g., "PROJ")
 - `summary` (string, required): Issue summary
 - `description` (string, required): Issue description in format suitable for JIRA Data Center edition (JIRA Wiki Markup)
-- `issueTypeId` (string, required): ID of the issue type
+- `issueType` (string, optional): Issue type name (e.g., "Task"), matched case-insensitively against the project's issue types. Unknown names fail with the list of valid types.
+- `issueTypeId` (string, optional): ID of the issue type. Provide either `issueType` or `issueTypeId`; `issueTypeId` wins if both are set.
 - `customFields` (object, optional): Additional JIRA fields merged into the issue payload. Can be used for custom fields and standard fields such as `labels`. Example: `{"labels":["urgent","bug"],"customfield_10001":"Custom Value"}`
 
 #### 5. jira_updateIssue
@@ -254,7 +257,7 @@ Parameters:
 - `issueKey` (string, required): The issue key (e.g., "PROJECT-123")
 - `summary` (string, optional): New issue summary
 - `description` (string, optional): New issue description in format suitable for JIRA Data Center edition (JIRA Wiki Markup)
-- `issueTypeId` (string, optional): New issue type ID
+- `issueTypeId` (string, optional): New issue type ID (no name lookup here; use `jira_getIssueTypes` to find the id)
 - `customFields` (object, optional): Additional JIRA fields merged into the update payload. Can be used for custom fields and standard fields such as `labels`. Example: `{"labels":["urgent","bug"],"customfield_10001":"Custom Value"}`
 
 #### 6. jira_postIssueComment
@@ -283,11 +286,12 @@ Parameters:
 
 #### 9. jira_transitionIssue
 
-Transition a JIRA issue to a new status in the JIRA Data Center edition instance.
+Transition a JIRA issue to a new status in the JIRA Data Center edition instance. With `transition` this takes a single call; `jira_getTransitions` is only needed for ambiguous names or to see the fields required by a transition screen.
 
 Parameters:
 - `issueKey` (string, required): The issue key (e.g., "PROJECT-123")
-- `transitionId` (string, required): Transition ID returned by `jira_getTransitions`
+- `transition` (string, optional): Name of the transition or of the target status (e.g., "Start Progress" or "In Progress"), matched case-insensitively. Unknown or ambiguous names fail with the list of available transitions.
+- `transitionId` (string, optional): Transition ID returned by `jira_getTransitions`. Provide either `transition` or `transitionId`; `transitionId` wins if both are set.
 - `fields` (object, optional): Additional fields required by the transition screen
 
 #### 10. jira_getIssueLinkTypes
@@ -350,3 +354,41 @@ Parameters:
 - `maxInlineBytes` (number, optional): Maximum bytes to embed inline when `returnContent` is `base64`/`text`. Larger files are omitted from the inline content. Defaults to 1 MiB.
 - `save` (boolean, optional): Save the attachment(s) into the server-configured download directory. Requires filesystem downloads to be enabled; existing files are never overwritten. *(Only available when downloads are enabled.)*
 - `saveName` (string, optional): File name (no directories) to use when saving a single attachment; defaults to the attachment's own name. *(Only available when downloads are enabled.)*
+
+#### 17. jira_getIssueTypes
+
+List the issue types available for creating issues in a project. Returns `id`, `name` and `subtask` per type plus pagination info.
+
+Parameters:
+- `projectKey` (string, required): Project key (e.g., "PROJ")
+- `maxResults` (number, optional): Maximum number of issue types to return. Defaults to `JIRA_DEFAULT_PAGE_SIZE` or `25`.
+- `startAt` (number, optional): Starting index for pagination
+
+#### 18. jira_getCreateFields
+
+List the fields for creating an issue of a given type in a project, in a compact form: `fieldId`, `name`, `required`, `type`, `hasDefaultValue` and `allowedValues` (only `id` and `name`/`value`; cut to `maxAllowedValues` entries and flagged with `truncated: true`).
+
+Parameters:
+- `projectKey` (string, required): Project key (e.g., "PROJ")
+- `issueType` (string, optional): Issue type name (e.g., "Task"). Provide either `issueType` or `issueTypeId`.
+- `issueTypeId` (string, optional): Issue type ID
+- `onlyRequired` (boolean, optional): Return only required fields. The filter applies to the returned page; check `isLast` when paginating.
+- `maxAllowedValues` (number, optional): Maximum allowed values listed per field. Defaults to `20`.
+- `maxResults` (number, optional): Maximum number of fields per page. Defaults to `JIRA_DEFAULT_PAGE_SIZE` or `25`.
+- `startAt` (number, optional): Starting index for pagination
+
+#### 19. jira_getEditFields
+
+List the editable fields of an existing issue in the same compact form as `jira_getCreateFields`.
+
+Parameters:
+- `issueKey` (string, required): The issue key (e.g., "PROJECT-123")
+- `onlyRequired` (boolean, optional): Return only required fields
+- `maxAllowedValues` (number, optional): Maximum allowed values listed per field. Defaults to `20`.
+
+#### 20. jira_searchFields
+
+Find field ids by display name (e.g., "Story Points" → `customfield_10016`). Returns `id`, `name`, `custom` and `type` per field. Use the id as key in `customFields` of `jira_createIssue` / `jira_updateIssue`; field names in `customFields` are not resolved automatically.
+
+Parameters:
+- `query` (string, optional): Case-insensitive substring matched against field name and id. Omit to list all fields.
