@@ -151,11 +151,11 @@ server.tool(
 
 server.tool(
   "jira_searchFields",
-  `Find JIRA field ids by display name in the ${jiraInstanceType} (e.g. 'Story Points' -> customfield_10016). Use the id as key in customFields of jira_createIssue / jira_updateIssue.`,
+  `Find JIRA field ids by display name in the ${jiraInstanceType} (e.g. 'Story Points' -> customfield_10016). Use the id as key in customFields of jira_createIssue / jira_updateIssue. Results are capped (default 50, see maxResults) and flagged with truncated: true; pass a query to narrow down.`,
   jiraToolSchemas.searchFields,
   readOnlyToolAnnotations,
-  async ({ query }) => {
-    const result = await jiraService.metadata.searchFields(query);
+  async ({ query, maxResults }) => {
+    const result = await jiraService.metadata.searchFields(query, maxResults);
     return formatToolResponse(result);
   }
 );

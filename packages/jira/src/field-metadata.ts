@@ -1,6 +1,7 @@
 import type { CreateMetaIssueTypeBean, FieldBean, FieldMetaBean } from './jira-client/index.js';
 
 export const DEFAULT_MAX_ALLOWED_VALUES = 20;
+export const DEFAULT_MAX_FIELDS = 50;
 
 export interface FieldFilter {
   onlyRequired?: boolean;
@@ -81,9 +82,14 @@ export function toCompactIssueType(issueType: CreateMetaIssueTypeBean) {
   return { id: issueType.id, name: issueType.name, subtask: issueType.subtask === true };
 }
 
-export function searchFieldList(fields: FieldBean[], query?: string) {
+export function searchFieldList(fields: FieldBean[], query?: string, limit = DEFAULT_MAX_FIELDS) {
   const needle = query?.trim().toLowerCase();
-  return fields
-    .filter((field) => !needle || [field.name, field.id].some((text) => text?.toLowerCase().includes(needle)))
-    .map((field) => ({ id: field.id, name: field.name, custom: field.custom === true, type: field.schema?.type }));
+  const matches = fields.filter((field) => !needle || [field.name, field.id].some((text) => text?.toLowerCase().includes(needle)));
+  return {
+    total: matches.length,
+    ...(matches.length > limit ? { truncated: true as const } : {}),
+    fields: matches
+      .slice(0, limit)
+      .map((field) => ({ id: field.id, name: field.name, custom: field.custom === true, type: field.schema?.type })),
+  };
 }

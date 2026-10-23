@@ -15,7 +15,7 @@ import { AttachmentService, IssueLinkService, IssueLinkTypeService, IssueService
 import { request as __request } from './jira-client/core/request.js';
 import type { StringList } from './jira-client/models/StringList.js';
 import { getDefaultPageSize, getMissingConfig, JIRA_PRODUCT } from './config.js';
-import { DEFAULT_MAX_ALLOWED_VALUES } from './field-metadata.js';
+import { DEFAULT_MAX_ALLOWED_VALUES, DEFAULT_MAX_FIELDS } from './field-metadata.js';
 import { JiraMetadataService } from './jira-metadata-service.js';
 
 const DEFAULT_SEARCH_FIELDS = ['summary', 'description', 'status', 'assignee', 'reporter', 'priority', 'issuetype', 'labels', 'updated'];
@@ -477,6 +477,7 @@ export const jiraToolSchemas = {
     ...fieldFilterSchema
   },
   searchFields: {
-    query: z.string().optional().describe("Case-insensitive substring matched against field name and id (e.g. 'story points'). Omit to list all fields.")
+    query: z.string().optional().describe("Case-insensitive substring matched against field name and id (e.g. 'story points'). Omit to list fields without filtering."),
+    maxResults: z.number().int().min(1).optional().describe(`Maximum number of fields returned (default ${DEFAULT_MAX_FIELDS}); longer results are cut and flagged with truncated: true. Use a more specific query to narrow down.`)
   }
 };

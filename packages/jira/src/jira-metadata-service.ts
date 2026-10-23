@@ -134,11 +134,11 @@ export class JiraMetadataService {
     }, 'Error getting edit fields');
   }
 
-  async searchFields(query?: string) {
+  async searchFields(query?: string, maxResults?: number) {
     return handleApiOperation(async () => {
       // The generated client types this list response as a single bean.
       const fields = (await FieldService.getFields()) as unknown as FieldBean[];
-      return { fields: searchFieldList(fields, query) };
+      return searchFieldList(fields, query, maxResults);
     }, 'Error searching fields');
   }
 }

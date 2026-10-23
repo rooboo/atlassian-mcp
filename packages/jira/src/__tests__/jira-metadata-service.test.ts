@@ -269,7 +269,7 @@ describe('JiraService field discovery', () => {
 
     const result = await jiraService.metadata.searchFields('story points');
 
-    expect(result.data).toEqual({ fields: [{ id: 'customfield_10016', name: 'Story Points', custom: true, type: 'number' }] });
+    expect(result.data).toEqual({ total: 1, fields: [{ id: 'customfield_10016', name: 'Story Points', custom: true, type: 'number' }] });
   });
 
   it('reports API errors through handleApiOperation', async () => {

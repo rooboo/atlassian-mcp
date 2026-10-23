@@ -388,7 +388,8 @@ Parameters:
 
 #### 20. jira_searchFields
 
-Find field ids by display name (e.g., "Story Points" → `customfield_10016`). Returns `id`, `name`, `custom` and `type` per field. Use the id as key in `customFields` of `jira_createIssue` / `jira_updateIssue`; field names in `customFields` are not resolved automatically.
+Find field ids by display name (e.g., "Story Points" → `customfield_10016`). Returns `id`, `name`, `custom` and `type` per field, plus `total` (matches before capping). The list is capped to `maxResults` (default 50) and flagged with `truncated: true`; use a more specific `query` to narrow down. Use the id as key in `customFields` of `jira_createIssue` / `jira_updateIssue`; field names in `customFields` are not resolved automatically.
 
 Parameters:
-- `query` (string, optional): Case-insensitive substring matched against field name and id. Omit to list all fields.
+- `query` (string, optional): Case-insensitive substring matched against field name and id. Omit to list fields without filtering.
+- `maxResults` (number, optional): Maximum number of fields returned. Defaults to `50`.

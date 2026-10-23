@@ -1,4 +1,4 @@
-import { compactFieldMap, compactFields, searchFieldList, toCompactField } from '../field-metadata.js';
+import { compactFieldMap, compactFields, DEFAULT_MAX_FIELDS, searchFieldList, toCompactField } from '../field-metadata.js';
 
 const options = Array.from({ length: 25 }, (_, i) => ({ id: `${i}`, value: `Option ${i}`, self: 'http://x', disabled: false }));
 
@@ -92,8 +92,24 @@ describe('field metadata mapping', () => {
       { id: 'customfield_10016', name: 'Story Points', custom: true, schema: { type: 'number' } },
     ];
 
-    expect(searchFieldList(fields, 'story')).toEqual([{ id: 'customfield_10016', name: 'Story Points', custom: true, type: 'number' }]);
-    expect(searchFieldList(fields, 'SUMMARY').map((field) => field.id)).toEqual(['summary']);
-    expect(searchFieldList(fields)).toHaveLength(2);
+    expect(searchFieldList(fields, 'story').fields).toEqual([{ id: 'customfield_10016', name: 'Story Points', custom: true, type: 'number' }]);
+    expect(searchFieldList(fields, 'SUMMARY').fields.map((field) => field.id)).toEqual(['summary']);
+    expect(searchFieldList(fields).fields).toHaveLength(2);
+  });
+
+  it('caps the field list and reports the total and truncation', () => {
+    const many = Array.from({ length: 120 }, (_, i) => ({ id: `customfield_${i}`, name: `Field ${i}` }));
+
+    const result = searchFieldList(many, '   ');
+
+    expect(result.fields).toHaveLength(DEFAULT_MAX_FIELDS);
+    expect(result).toMatchObject({ total: 120, truncated: true });
+  });
+
+  it('honors an explicit limit and does not flag complete results', () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({ id: `f${i}`, name: `Field ${i}` }));
+
+    expect(searchFieldList(many, 'field', 2)).toMatchObject({ total: 5, truncated: true });
+    expect(searchFieldList(many, 'field', 5).truncated).toBeUndefined();
   });
 });
