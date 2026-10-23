@@ -26,10 +26,28 @@ describe('resolveTransitionId', () => {
     );
   });
 
-  it('rejects ambiguous matches with different ids', () => {
-    const ambiguous = [...transitions, { id: '41', name: 'Done', to: { name: 'Done' } }];
+  it('prefers an exact transition name over target status matches', () => {
+    const both = [
+      { id: '31', name: 'Done', to: { name: 'Done' } },
+      { id: '41', name: "Won't Do", to: { name: 'Done' } },
+    ];
+    expect(resolveTransitionId(both, 'Done')).toBe('31');
+  });
+
+  it('falls back to the target status when no transition name matches', () => {
+    expect(resolveTransitionId([{ id: '41', name: "Won't Do", to: { name: 'Done' } }], 'Done')).toBe('41');
+  });
+
+  it('rejects ambiguous transition names with different ids', () => {
+    const ambiguous = [...transitions, { id: '41', name: 'Resolve', to: { name: 'Closed' } }];
+    expect(() => resolveTransitionId(ambiguous, 'resolve')).toThrow(/Ambiguous transition "resolve"\. Available: .*id=41/);
+  });
+
+  it('rejects ambiguous target statuses when no name matches', () => {
+    const ambiguous = [...transitions, { id: '41', name: "Won't Do", to: { name: 'Done' } }];
     expect(() => resolveTransitionId(ambiguous, 'done')).toThrow(/Ambiguous transition "done"\. Available: .*id=41/);
   });
+
 
   it('treats several matches with the same id as one', () => {
     const duplicated = [...transitions, { id: '21', name: 'Done', to: { name: 'Done' } }];
