@@ -4,7 +4,8 @@ import { compactFieldMap, compactFields, searchFieldList, toCompactIssueType, ty
 import { resolveIssueTypeId } from './issue-type-resolver.js';
 import { resolveTransitionId } from './transition-resolver.js';
 
-const ISSUE_TYPE_LOOKUP_LIMIT = 100;
+const LOOKUP_PAGE_SIZE = 100;
+const MAX_LOOKUP_PAGES = 20;
 
 export interface PageParams {
   maxResults?: number;
@@ -33,6 +34,29 @@ function asPage<T>(response: unknown): MetaPage<T> {
   return response as MetaPage<T>;
 }
 
+function isLastPage<T>(page: MetaPage<T>, fetched: number): boolean {
+  if (!page.values?.length || page.isLast === true) {
+    return true;
+  }
+  if (page.total !== undefined) {
+    return fetched >= page.total;
+  }
+  return page.isLast === undefined;
+}
+
+// Advances by the number of values actually returned, as the server may cap the requested page size.
+async function fetchAllPages<T>(fetchPage: (startAt: number) => Promise<MetaPage<T>>) {
+  const values: T[] = [];
+  for (let page = 0; page < MAX_LOOKUP_PAGES; page++) {
+    const result = await fetchPage(values.length);
+    values.push(...(result.values ?? []));
+    if (isLastPage(result, values.length)) {
+      return { values, complete: true };
+    }
+  }
+  return { values, complete: false };
+}
+
 export class JiraMetadataService {
   constructor(private readonly getPageSize: () => number) {}
 
@@ -51,8 +75,10 @@ export class JiraMetadataService {
     if (!issueType) {
       throw new Error('Either issueTypeId or issueType must be provided');
     }
-    const { values } = await this.fetchIssueTypes(projectKey, { maxResults: ISSUE_TYPE_LOOKUP_LIMIT });
-    return resolveIssueTypeId(values ?? [], issueType);
+    const { values } = await fetchAllPages((startAt) =>
+      this.fetchIssueTypes(projectKey, { maxResults: LOOKUP_PAGE_SIZE, startAt }),
+    );
+    return resolveIssueTypeId(values, issueType);
   }
 
   async resolveTransitionId(issueKey: string, transitionId?: string, transition?: string): Promise<string> {

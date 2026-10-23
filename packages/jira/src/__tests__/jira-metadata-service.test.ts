@@ -101,10 +101,35 @@ describe('JiraService name resolution', () => {
       const result = await jiraService.createIssue({ ...baseParams, issueType: 'task' });
 
       expect(result.success).toBe(true);
-      expect(IssueService.getCreateIssueMetaProjectIssueTypes).toHaveBeenCalledWith('PROJ', '100', undefined);
+      expect(IssueService.getCreateIssueMetaProjectIssueTypes).toHaveBeenCalledWith('PROJ', '100', '0');
       expect(IssueService.createIssue).toHaveBeenCalledWith(true, {
         fields: { project: { key: 'PROJ' }, summary: 'S', description: 'D', issuetype: { id: '10001' } },
       });
+    });
+
+    it('pages through the project issue types until the name is found', async () => {
+      (IssueService.getCreateIssueMetaProjectIssueTypes as jest.Mock)
+        .mockResolvedValueOnce({ startAt: 0, total: 3, isLast: false, values: [{ id: '10001', name: 'Task' }, { id: '10002', name: 'Bug' }] })
+        .mockResolvedValueOnce({ startAt: 2, total: 3, isLast: true, values: [{ id: '10003', name: 'Story' }] });
+      (IssueService.createIssue as jest.Mock).mockResolvedValue({ key: 'PROJ-2' });
+
+      const result = await jiraService.createIssue({ ...baseParams, issueType: 'story' });
+
+      expect(result.success).toBe(true);
+      expect(IssueService.getCreateIssueMetaProjectIssueTypes).toHaveBeenNthCalledWith(2, 'PROJ', '100', '2');
+      expect(IssueService.createIssue).toHaveBeenCalledWith(true, {
+        fields: expect.objectContaining({ issuetype: { id: '10003' } }),
+      });
+    });
+
+    it('lists issue types of all pages when the name is unknown', async () => {
+      (IssueService.getCreateIssueMetaProjectIssueTypes as jest.Mock)
+        .mockResolvedValueOnce({ total: 2, isLast: false, values: [{ id: '1', name: 'Task' }] })
+        .mockResolvedValueOnce({ total: 2, isLast: true, values: [{ id: '2', name: 'Bug' }] });
+
+      const result = await jiraService.createIssue({ ...baseParams, issueType: 'Epic' });
+
+      expect(result.error).toBe('No issue type matches "Epic". Available: id=1 name="Task"; id=2 name="Bug"');
     });
 
     it('uses issueTypeId without looking up issue types', async () => {
