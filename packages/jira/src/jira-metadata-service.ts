@@ -102,11 +102,28 @@ export class JiraMetadataService {
   async getCreateFields(projectKey: string, type: IssueTypeRef, filter: FieldFilter = {}, page: PageParams = {}) {
     return handleApiOperation(async () => {
       const issueTypeId = await this.resolveIssueTypeId(projectKey, type.issueTypeId, type.issueType);
-      const result = asPage<FieldMetaBean>(
-        await IssueService.getCreateIssueMetaFields(issueTypeId, projectKey, ...this.pageArgs(page)),
-      );
+      const fetchPage = async (pageParams: PageParams) =>
+        asPage<FieldMetaBean>(await IssueService.getCreateIssueMetaFields(issueTypeId, projectKey, ...this.pageArgs(pageParams)));
+      if (filter.onlyRequired) {
+        return { ...(await this.collectRequiredFields(fetchPage, filter)), issueTypeId };
+      }
+      const result = await fetchPage(page);
       return { ...pageInfo(result), issueTypeId, fields: compactFields(result.values ?? [], filter) };
     }, 'Error getting create fields');
+  }
+
+  // A required-only view must not depend on which page a field happens to be on, so all pages are read first.
+  private async collectRequiredFields(fetchPage: (page: PageParams) => Promise<MetaPage<FieldMetaBean>>, filter: FieldFilter) {
+    const { values, complete } = await fetchAllPages((startAt) => fetchPage({ maxResults: LOOKUP_PAGE_SIZE, startAt }));
+    const fields = compactFields(values, filter);
+    return {
+      startAt: 0,
+      maxResults: fields.length,
+      total: fields.length,
+      isLast: complete,
+      ...(complete ? {} : { truncated: true }),
+      fields,
+    };
   }
 
   async getEditFields(issueKey: string, filter: FieldFilter = {}) {

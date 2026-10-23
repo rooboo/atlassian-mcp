@@ -372,10 +372,10 @@ Parameters:
 - `projectKey` (string, required): Project key (e.g., "PROJ")
 - `issueType` (string, optional): Issue type name (e.g., "Task"). Provide either `issueType` or `issueTypeId`.
 - `issueTypeId` (string, optional): Issue type ID
-- `onlyRequired` (boolean, optional): Return only required fields. The filter applies to the returned page; check `isLast` when paginating.
+- `onlyRequired` (boolean, optional): Return only required fields. All pages are read first (up to 2000 fields) and then filtered, so `maxResults` and `startAt` are ignored; the result is complete (`isLast: true`) unless it carries `truncated: true`.
 - `maxAllowedValues` (number, optional): Maximum allowed values listed per field. Defaults to `20`.
-- `maxResults` (number, optional): Maximum number of fields per page. Defaults to `JIRA_DEFAULT_PAGE_SIZE` or `25`.
-- `startAt` (number, optional): Starting index for pagination
+- `maxResults` (number, optional): Maximum number of fields per page (without `onlyRequired`). Defaults to `JIRA_DEFAULT_PAGE_SIZE` or `25`.
+- `startAt` (number, optional): Starting index for pagination (without `onlyRequired`)
 
 #### 19. jira_getEditFields
 

@@ -367,7 +367,7 @@ const metaPageSchema = {
 };
 
 const fieldFilterSchema = {
-  onlyRequired: z.boolean().optional().describe("Return only required fields"),
+  onlyRequired: z.boolean().optional().describe("Return only required fields. For create fields all pages are read first, so maxResults/startAt are ignored in that case."),
   maxAllowedValues: z.number().int().min(0).optional().describe(`Maximum allowed values listed per field (default ${DEFAULT_MAX_ALLOWED_VALUES}); longer lists are cut and flagged with truncated: true`)
 };
 

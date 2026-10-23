@@ -198,11 +198,45 @@ describe('JiraService field discovery', () => {
       ],
     });
 
-    const result = await jiraService.metadata.getCreateFields('PROJ', { issueType: 'Task' }, { onlyRequired: true }, { maxResults: 50, startAt: 10 });
+    const result = await jiraService.metadata.getCreateFields('PROJ', { issueType: 'Task' }, { onlyRequired: true });
 
-    expect(IssueService.getCreateIssueMetaFields).toHaveBeenCalledWith('10001', 'PROJ', '50', '10');
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenCalledWith('10001', 'PROJ', '100', '0');
     expect(result.data?.issueTypeId).toBe('10001');
     expect(result.data?.fields).toEqual([{ fieldId: 'summary', name: 'Summary', required: true, type: 'string', hasDefaultValue: false }]);
+  });
+
+  it('collects required fields across all pages when onlyRequired is set', async () => {
+    (IssueService.getCreateIssueMetaFields as jest.Mock)
+      .mockResolvedValueOnce({ startAt: 0, total: 3, isLast: false, values: [{ fieldId: 'summary', required: true }, { fieldId: 'labels', required: false }] })
+      .mockResolvedValueOnce({ startAt: 2, total: 3, isLast: true, values: [{ fieldId: 'customfield_1', required: true }] });
+
+    const result = await jiraService.metadata.getCreateFields('PROJ', { issueTypeId: '10001' }, { onlyRequired: true });
+
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenNthCalledWith(1, '10001', 'PROJ', '100', '0');
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenNthCalledWith(2, '10001', 'PROJ', '100', '2');
+    expect(result.data).toMatchObject({ startAt: 0, maxResults: 2, total: 2, isLast: true });
+    expect(result.data?.fields.map((field) => field.fieldId)).toEqual(['summary', 'customfield_1']);
+  });
+
+  it('flags the result when the page cap is hit while collecting required fields', async () => {
+    (IssueService.getCreateIssueMetaFields as jest.Mock).mockResolvedValue({
+      total: 10000,
+      isLast: false,
+      values: [{ fieldId: 'summary', required: true }],
+    });
+
+    const result = await jiraService.metadata.getCreateFields('PROJ', { issueTypeId: '10001' }, { onlyRequired: true });
+
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenCalledTimes(20);
+    expect(result.data).toMatchObject({ isLast: false, truncated: true });
+  });
+
+  it('forwards explicit pagination when onlyRequired is not set', async () => {
+    (IssueService.getCreateIssueMetaFields as jest.Mock).mockResolvedValue({ values: [] });
+
+    await jiraService.metadata.getCreateFields('PROJ', { issueTypeId: '10001' }, {}, { maxResults: 50, startAt: 10 });
+
+    expect(IssueService.getCreateIssueMetaFields).toHaveBeenCalledWith('10001', 'PROJ', '50', '10');
   });
 
   it('uses issueTypeId for create fields without looking up issue types', async () => {
