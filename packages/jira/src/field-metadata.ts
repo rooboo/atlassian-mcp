@@ -11,6 +11,8 @@ export interface CompactAllowedValue {
   id?: string;
   name?: string;
   value?: string;
+  children?: CompactAllowedValue[];
+  truncated?: true;
 }
 
 export interface CompactField {
@@ -27,7 +29,7 @@ function optionalString(value: unknown): string | undefined {
   return value === undefined || value === null ? undefined : String(value);
 }
 
-function toCompactAllowedValue(raw: Record<string, unknown>): CompactAllowedValue {
+function toCompactAllowedValue(raw: Record<string, unknown>, limit: number): CompactAllowedValue {
   const compact: CompactAllowedValue = { id: optionalString(raw.id) };
   const name = optionalString(raw.name);
   const value = optionalString(raw.value);
@@ -36,6 +38,13 @@ function toCompactAllowedValue(raw: Record<string, unknown>): CompactAllowedValu
   }
   if (value !== undefined) {
     compact.value = value;
+  }
+  if (Array.isArray(raw.children)) {
+    const children = raw.children as Array<Record<string, unknown>>;
+    compact.children = children.slice(0, limit).map((child) => toCompactAllowedValue(child, limit));
+    if (children.length > limit) {
+      compact.truncated = true;
+    }
   }
   return compact;
 }
@@ -49,7 +58,7 @@ export function toCompactField(field: FieldMetaBean, maxAllowedValues = DEFAULT_
     hasDefaultValue: field.hasDefaultValue === true,
   };
   if (field.allowedValues) {
-    compact.allowedValues = field.allowedValues.slice(0, maxAllowedValues).map(toCompactAllowedValue);
+    compact.allowedValues = field.allowedValues.slice(0, maxAllowedValues).map((raw) => toCompactAllowedValue(raw, maxAllowedValues));
     if (field.allowedValues.length > maxAllowedValues) {
       compact.truncated = true;
     }

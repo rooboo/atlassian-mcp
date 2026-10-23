@@ -26,6 +26,30 @@ describe('field metadata mapping', () => {
     expect(field.truncated).toBeUndefined();
   });
 
+  it('keeps cascading select children with id and value only', () => {
+    const field = toCompactField({
+      fieldId: 'customfield_2',
+      allowedValues: [
+        { id: '1', value: 'Europe', self: 'x', children: [{ id: '11', value: 'Germany', self: 'y' }, { id: '12', value: 'France' }] },
+        { id: '2', value: 'Asia' },
+      ],
+    });
+
+    expect(field.allowedValues).toEqual([
+      { id: '1', value: 'Europe', children: [{ id: '11', value: 'Germany' }, { id: '12', value: 'France' }] },
+      { id: '2', value: 'Asia' },
+    ]);
+  });
+
+  it('limits children per parent and flags the parent as truncated', () => {
+    const children = Array.from({ length: 5 }, (_, i) => ({ id: `c${i}`, value: `Child ${i}` }));
+    const field = toCompactField({ fieldId: 'customfield_2', allowedValues: [{ id: '1', value: 'Parent', children }] }, 3);
+
+    expect(field.allowedValues?.[0].children).toHaveLength(3);
+    expect(field.allowedValues?.[0].truncated).toBe(true);
+    expect(field.truncated).toBeUndefined();
+  });
+
   it('truncates allowedValues to 20 entries by default', () => {
     const field = toCompactField({ fieldId: 'customfield_1', allowedValues: options });
 

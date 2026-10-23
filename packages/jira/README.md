@@ -366,7 +366,7 @@ Parameters:
 
 #### 18. jira_getCreateFields
 
-List the fields for creating an issue of a given type in a project, in a compact form: `fieldId`, `name`, `required`, `type`, `hasDefaultValue` and `allowedValues` (only `id` and `name`/`value`; cut to `maxAllowedValues` entries and flagged with `truncated: true`).
+List the fields for creating an issue of a given type in a project, in a compact form: `fieldId`, `name`, `required`, `type`, `hasDefaultValue` and `allowedValues` (only `id` and `name`/`value`, plus `children` for cascading selects; each list is cut to `maxAllowedValues` entries and flagged with `truncated: true`).
 
 Parameters:
 - `projectKey` (string, required): Project key (e.g., "PROJ")
