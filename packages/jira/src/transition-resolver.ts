@@ -6,6 +6,7 @@ export function resolveTransitionId(transitions: TransitionBean[], query: string
     label: 'transition',
     names: [(transition) => transition.name, (transition) => transition.to?.name],
     id: (transition) => transition.id,
-    describe: (transition) => `id=${transition.id} name="${transition.name}" to="${transition.to?.name}"`,
+    describe: (transition) =>
+      `id=${transition.id} name="${transition.name}"` + (transition.to?.name ? ` to="${transition.to.name}"` : ''),
   });
 }

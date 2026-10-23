@@ -54,6 +54,12 @@ describe('resolveTransitionId', () => {
     expect(resolveTransitionId(duplicated, 'Done')).toBe('21');
   });
 
+  it('omits the target in the listing when a transition has none', () => {
+    expect(() => resolveTransitionId([{ id: '51', name: 'Archive' }], 'Reopen')).toThrow(
+      /^No transition matches "Reopen"\. Available: id=51 name="Archive"$/,
+    );
+  });
+
   it('rejects an empty query', () => {
     expect(() => resolveTransitionId(transitions, '  ')).toThrow('Missing transition name');
   });
